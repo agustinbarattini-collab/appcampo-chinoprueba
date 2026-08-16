@@ -154,13 +154,15 @@ async function syncAll(onProgress) {
 // nada local, solo agregan/actualizan por nombre (o loteNombre+cultivo en Plan).
 // ---------------------------------------------------------------------------
 
+// Silos Bolsa se maneja aparte (ver más abajo, junto con Plan de Siembra):
+// necesita resolver la campaña por nombre a un campaniaId local, algo que
+// este loop genérico (upsert simple por "nombre") no hace.
 const MAESTROS_CAMPOS = {
   lotes: ["nombre", "cultivo"],
   corredores: ["nombre"],
   proveedores: ["nombre"],
   contratistas: ["nombre"],
   insumos: ["nombre", "unidad"],
-  silosBolsa: ["nombre", "cultivo", "kgTotalInicial"],
   campanias: ["nombre", "activa"],
 };
 
@@ -212,6 +214,39 @@ async function importarMaestros() {
       else nuevos++;
     }
     resumen[MAESTROS_ETIQUETAS[store]] = { nuevos, actualizados };
+  }
+
+  // Silos Bolsa: clave compuesta (nombre + cultivo + campaña), no un "nombre"
+  // único — así un silo nuevo de la campaña que arranca no se confunde con
+  // uno viejo que comparte nombre+cultivo de otra campaña (mismo criterio de
+  // agrupamiento que agruparSilosPorNombreCultivo en stockUtils.js).
+  {
+    const filas = data.maestros.silosBolsa || [];
+    const existentes = await dbGetAll("silosBolsa");
+    let nuevos = 0;
+    let actualizados = 0;
+    for (const fila of filas) {
+      const nombre = String(fila.nombre || "").trim();
+      if (!nombre) continue;
+      const cultivo = String(fila.cultivo || "").trim();
+      const campaniaNombre = String(fila.campaniaNombre || "").trim();
+      const campaniaId = campaniaNombre ? await resolverIdPorNombre("campanias", campaniaNombre, { activa: false }) : null;
+      const existente = existentes.find(
+        (s) =>
+          s.nombre.trim().toLowerCase() === nombre.toLowerCase() &&
+          (s.cultivo || "").trim().toLowerCase() === cultivo.toLowerCase() &&
+          (s.campaniaId || null) === campaniaId
+      );
+      const record = existente ? { ...existente } : { id: uid(), nombre };
+      record.cultivo = cultivo;
+      record.campaniaId = campaniaId;
+      record.campaniaNombre = campaniaNombre;
+      record.kgTotalInicial = parseFloat(fila.kgTotalInicial) || 0;
+      await dbPut("silosBolsa", record);
+      if (existente) actualizados++;
+      else nuevos++;
+    }
+    resumen[MAESTROS_ETIQUETAS.silosBolsa] = { nuevos, actualizados };
   }
 
   // Plan de Siembra: clave compuesta (loteNombre + cultivo + campañaNombre), no un "nombre" único.
