@@ -142,6 +142,50 @@ function setup() {
     const s = ss.getSheetByName(n);
     if (s && ss.getSheets().length > 1) ss.deleteSheet(s);
   });
+  aplicarValidacionCampanias();
+}
+
+/**
+ * Convierte la columna "campaniaNombre" de Silos Bolsa y Plan de Siembra en
+ * una lista desplegable con los nombres que hoy existen en "Maestros -
+ * Campañas", en vez de texto libre. Así se evita el problema real que ya
+ * pasó una vez (una campaña "2025/26" con barra, escrita a mano, terminó
+ * creando una campaña fantasma separada de la "2025-26" real con guion) —
+ * ahora solo se puede elegir un nombre que YA existe, no tipear uno nuevo
+ * por error. Se corre sola al final de setup(), así que se mantiene
+ * actualizada cada vez que se agrega/renombra una campaña y se vuelve a
+ * correr setup() (idempotente, no rompe nada si se corre de más). Si
+ * "Maestros - Campañas" todavía no tiene ninguna fila cargada, no hace nada
+ * (evita dejar una lista vacía que bloquee cualquier valor).
+ */
+function aplicarValidacionCampanias() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hojaCampanias = ss.getSheetByName(MAESTROS_SHEETS.campanias.name);
+  if (!hojaCampanias) return;
+  const lastRow = hojaCampanias.getLastRow();
+  if (lastRow < 2) return;
+
+  const nombres = hojaCampanias
+    .getRange(2, 1, lastRow - 1, 1)
+    .getValues()
+    .map(function (r) { return String(r[0]).trim(); })
+    .filter(function (n) { return n !== ""; });
+  if (nombres.length === 0) return;
+
+  const regla = SpreadsheetApp.newDataValidation()
+    .requireValueInList(nombres, true)
+    .setAllowInvalid(false)
+    .build();
+
+  [MAESTROS_SHEETS.silosBolsa, MAESTROS_SHEETS.planSiembra].forEach(function (cfg) {
+    const hoja = ss.getSheetByName(cfg.name);
+    if (!hoja) return;
+    const col = cfg.headers.indexOf("campaniaNombre") + 1;
+    if (col < 1) return;
+    // Rango amplio (499 filas) para cubrir filas que se agreguen después,
+    // sin tener que correr esto de nuevo cada vez que se suma una carga.
+    hoja.getRange(2, col, 499, 1).setDataValidation(regla);
+  });
 }
 
 function crearPestana(ss, cfg) {
