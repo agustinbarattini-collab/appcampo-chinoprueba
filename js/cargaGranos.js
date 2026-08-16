@@ -76,6 +76,8 @@ async function finalizarSiloBolsa(siloId, kgResidualAntes, kgEsteViaje, fechaCar
     fecha: fechaCarga,
     siloBolsaNombre: silo.nombre,
     cultivo: silo.cultivo || "",
+    campaniaId: silo.campaniaId || null,
+    campaniaNombre: silo.campaniaNombre || "",
     kgTotalInicial: kgTotalInicialGrupo,
     kgTotalRetirado: Math.round((kgTotalInicialGrupo + diferenciaKg) * 100) / 100,
     diferenciaKg,

@@ -86,6 +86,9 @@ const SHEETS = {
     headers: [
       "id", "fecha", "siloBolsaNombre", "cultivo", "kgTotalInicial", "kgTotalRetirado",
       "diferenciaKg", "tipoDiferencia", "observaciones", "fechaCreacionRegistro", "fechaSincronizacion",
+      // Va al final para no correr de lugar los datos ya cargados: campaña del
+      // silo bolsa que se finalizó (heredada del maestro, no se elige a mano).
+      "campaniaNombre",
     ],
   },
   ordenTrabajo: {

@@ -231,12 +231,19 @@ async function importarMaestros() {
       const cultivo = String(fila.cultivo || "").trim();
       const campaniaNombre = String(fila.campaniaNombre || "").trim();
       const campaniaId = campaniaNombre ? await resolverIdPorNombre("campanias", campaniaNombre, { activa: false }) : null;
-      const existente = existentes.find(
-        (s) =>
-          s.nombre.trim().toLowerCase() === nombre.toLowerCase() &&
-          (s.cultivo || "").trim().toLowerCase() === cultivo.toLowerCase() &&
-          (s.campaniaId || null) === campaniaId
-      );
+      const mismoNombreCultivo = (s) =>
+        s.nombre.trim().toLowerCase() === nombre.toLowerCase() &&
+        (s.cultivo || "").trim().toLowerCase() === cultivo.toLowerCase();
+      // 1) Coincidencia exacta por nombre+cultivo+campaña.
+      let existente = existentes.find((s) => mismoNombreCultivo(s) && (s.campaniaId || null) === campaniaId);
+      // 2) Si no hay exacta, puede ser un silo YA CARGADO en el dispositivo
+      // de antes de que existiera esta columna (sin campaniaId todavía) al
+      // que recién ahora se le asignó campaña en la Sheet — se actualiza ESE
+      // registro en el lugar (conserva su id, y con él todo el historial de
+      // cargas que ya lo tenían como origen) en vez de crear uno nuevo vacío.
+      if (!existente) {
+        existente = existentes.find((s) => mismoNombreCultivo(s) && !s.campaniaId);
+      }
       const record = existente ? { ...existente } : { id: uid(), nombre };
       record.cultivo = cultivo;
       record.campaniaId = campaniaId;
@@ -514,11 +521,15 @@ async function unflattenCierre(fila) {
 }
 
 async function unflattenAjusteSiloBolsa(fila) {
+  const campaniaNombre = String(fila.campaniaNombre || "").trim();
+  const campaniaId = campaniaNombre ? await resolverIdPorNombre("campanias", campaniaNombre, { activa: false }) : null;
   return {
     id: fila.id,
     fecha: fila.fecha,
     siloBolsaNombre: String(fila.siloBolsaNombre || "").trim(),
     cultivo: fila.cultivo || "",
+    campaniaId,
+    campaniaNombre,
     kgTotalInicial: parseFloat(fila.kgTotalInicial) || 0,
     kgTotalRetirado: parseFloat(fila.kgTotalRetirado) || 0,
     diferenciaKg: parseFloat(fila.diferenciaKg) || 0,
