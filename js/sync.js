@@ -231,9 +231,14 @@ async function importarMaestros() {
       const cultivo = String(fila.cultivo || "").trim();
       const campaniaNombre = String(fila.campaniaNombre || "").trim();
       const campaniaId = campaniaNombre ? await resolverIdPorNombre("campanias", campaniaNombre, { activa: false }) : null;
-      const mismoNombreCultivo = (s) =>
-        s.nombre.trim().toLowerCase() === nombre.toLowerCase() &&
-        (s.cultivo || "").trim().toLowerCase() === cultivo.toLowerCase();
+      const mismoNombre = (s) => s.nombre.trim().toLowerCase() === nombre.toLowerCase();
+      const mismoNombreCultivo = (s) => mismoNombre(s) && (s.cultivo || "").trim().toLowerCase() === cultivo.toLowerCase();
+      // Un registro "cascarón" es uno creado por resolverIdPorNombre() al
+      // traer una Carga de Granos que referencia un silo por nombre que
+      // todavía no existía localmente (ej. en un dispositivo recién
+      // reseteado) — nace con cultivo vacío, sin campaña y kgTotalInicial 0,
+      // como puro marcador para no perder la referencia de esa carga.
+      const esCascaron = (s) => !s.campaniaId && !s.cultivo && !s.kgTotalInicial;
       // 1) Coincidencia exacta por nombre+cultivo+campaña.
       let existente = existentes.find((s) => mismoNombreCultivo(s) && (s.campaniaId || null) === campaniaId);
       // 2) Si no hay exacta, puede ser un silo YA CARGADO en el dispositivo
@@ -243,6 +248,13 @@ async function importarMaestros() {
       // cargas que ya lo tenían como origen) en vez de crear uno nuevo vacío.
       if (!existente) {
         existente = existentes.find((s) => mismoNombreCultivo(s) && !s.campaniaId);
+      }
+      // 3) Si tampoco hay eso, puede ser un cascarón (ver esCascaron arriba)
+      // — el cultivo de este import es la primera info real que recibe, así
+      // que se lo adopta por NOMBRE solo (el cultivo vacío del cascarón no
+      // tiene por qué coincidir con el real).
+      if (!existente) {
+        existente = existentes.find((s) => mismoNombre(s) && esCascaron(s));
       }
       const record = existente ? { ...existente } : { id: uid(), nombre };
       record.cultivo = cultivo;
