@@ -1,5 +1,6 @@
 import { dbGetAll, dbPut, dbDelete, uid } from "./db.js";
 import { getInsumosConStock, getSaldoOrden } from "./stockUtils.js";
+import { toast } from "./ui.js";
 
 const STORE = "movimientosInsumos";
 
@@ -154,6 +155,7 @@ function renderFormIngreso(container, formArea, { proveedores, insumos }, onSave
     };
     await dbPut(STORE, registro);
     window.dispatchEvent(new Event("appcampo-sync-now"));
+    toast("Ingreso registrado.");
     onSaved();
   });
 }
@@ -163,6 +165,10 @@ function renderFormSalida(container, formArea, { contratistas, insumos, ordenes 
     formArea.innerHTML = `<div class="empty-state">Todavía no cargaste ningún <strong>Contratista</strong>.<br/>Andá a Maestros → Contratistas para cargarlo.</div>`;
     return;
   }
+  // Solo se ofrecen insumos con stock > 0 — no tiene sentido armar una salida
+  // de algo que ya está en 0. Si igual se saca más de lo que queda (llevando
+  // el stock a negativo), el aviso de abajo lo avisa al confirmar.
+  const insumosConStock = insumos.filter((i) => i.stock > 0);
   formArea.innerHTML = `
     <form id="formMov">
       <div class="field">
@@ -180,7 +186,11 @@ function renderFormSalida(container, formArea, { contratistas, insumos, ordenes 
       </div>
       <div class="field">
         <label>Insumo</label>
-        <select id="fInsumo" required><option value="">Seleccionar...</option>${opts(insumos, { withStock: true })}</select>
+        ${
+          insumosConStock.length === 0
+            ? '<div class="empty-state">No hay insumos con stock disponible para sacar.</div>'
+            : `<select id="fInsumo" required><option value="">Seleccionar...</option>${opts(insumosConStock, { withStock: true })}</select>`
+        }
       </div>
       <div class="field">
         <label>Cantidad</label>
@@ -198,7 +208,7 @@ function renderFormSalida(container, formArea, { contratistas, insumos, ordenes 
     e.preventDefault();
     const ordenNombre = container.querySelector("#fOrden").value.trim();
     const contratistaId = container.querySelector("#fContratista").value;
-    const insumoId = container.querySelector("#fInsumo").value;
+    const insumoId = container.querySelector("#fInsumo")?.value || "";
     if (!ordenNombre || !contratistaId || !insumoId) return;
 
     const contratista = contratistas.find((c) => c.id === contratistaId);
@@ -246,6 +256,7 @@ function renderFormSalida(container, formArea, { contratistas, insumos, ordenes 
     };
     await dbPut(STORE, registro);
     window.dispatchEvent(new Event("appcampo-sync-now"));
+    toast("Salida registrada.");
     onSaved();
   });
 }
@@ -355,6 +366,7 @@ function renderFormDevolucion(container, formArea, { ordenes, insumos }, onSaved
     };
     await dbPut(STORE, registro);
     window.dispatchEvent(new Event("appcampo-sync-now"));
+    toast("Devolución registrada.");
     onSaved();
   });
 }

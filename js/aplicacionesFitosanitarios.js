@@ -1,5 +1,6 @@
 import { dbGetAll, dbPut, dbDelete, uid } from "./db.js";
 import { getCuentaContratistas } from "./stockUtils.js";
+import { toast } from "./ui.js";
 
 const STORE = "aplicacionesFitosanitarios";
 const NUM_PRODUCTOS = 6;
@@ -18,24 +19,50 @@ function opts(list) {
     .join("");
 }
 
-function renderCuentaCard(container, cuenta) {
+// Filtrada por el contratista elegido arriba del formulario — antes mostraba
+// la cuenta de TODOS los contratistas juntos, mezclado; ahora que seleccionás
+// el contratista primero, tiene más sentido ver solo lo suyo.
+function renderCuentaCard(container, cuenta, contratistaId, contratistaNombre) {
   const el = container.querySelector("#cuentaCard");
-  const relevantes = cuenta.filter((c) => c.retirado > 0).sort((a, b) => a.contratistaNombre.localeCompare(b.contratistaNombre));
-  el.innerHTML = `<h2 style="margin-top:0;">Cuenta por contratista</h2>` +
+  if (!contratistaId) {
+    el.innerHTML = `<h2 style="margin-top:0;">Stock pendiente del contratista</h2><div class="empty-state">Elegí un contratista arriba para ver qué insumos tiene pendientes de usar.</div>`;
+    return;
+  }
+  const relevantes = cuenta
+    .filter((c) => c.contratistaId === contratistaId && c.retirado > 0)
+    .sort((a, b) => a.insumoNombre.localeCompare(b.insumoNombre));
+  el.innerHTML = `<h2 style="margin-top:0;">Stock pendiente de ${contratistaNombre}</h2>` +
     (relevantes.length
       ? relevantes
           .map(
             (c) => `
         <div class="list-item">
           <div>
-            <div><strong>${c.contratistaNombre}</strong> — ${c.insumoNombre}</div>
+            <div><strong>${c.insumoNombre}</strong></div>
             <div class="muted">retiró ${c.retirado} · usó ${c.usado} · devolvió ${c.devuelto}</div>
           </div>
           <div class="pill ${c.pendiente > 0 ? "pendiente" : "sincronizado"}">${c.pendiente} ${c.unidad || ""} pend.</div>
         </div>`
           )
           .join("")
-      : '<div class="empty-state">Todavía no hay retiros de insumos registrados (Insumos → Salida).</div>');
+      : '<div class="empty-state">Este contratista no tiene retiros de insumos registrados (Insumos → Salida).</div>');
+}
+
+// Igual que opts(), pero agrega el stock PENDIENTE de ese contratista para
+// cada producto directo en el texto de la opción (mismo criterio que en
+// Insumos, donde el desplegable ya muestra el stock de cada uno) — así se ve
+// de un vistazo sin tener que elegir el producto primero.
+function optsConPendiente(insumos, cuenta, contratistaId) {
+  return insumos
+    .slice()
+    .sort((a, b) => a.nombre.localeCompare(b.nombre))
+    .map((i) => {
+      if (!contratistaId) return `<option value="${i.id}">${i.nombre}</option>`;
+      const c = cuenta.find((x) => x.contratistaId === contratistaId && x.insumoId === i.id);
+      const pendiente = c ? c.pendiente : 0;
+      return `<option value="${i.id}">${i.nombre} — pendiente: ${pendiente} ${i.unidad || ""}</option>`;
+    })
+    .join("");
 }
 
 function actualizarPendienteFila(filaEl, contratistaId, cuenta) {
@@ -139,12 +166,25 @@ const aplicacionesFitosanitariosView = {
       <div class="card" id="listaAplicaciones"></div>
     `;
 
-    renderCuentaCard(container, cuenta);
+    renderCuentaCard(container, cuenta, "", "");
 
     const fContratista = container.querySelector("#fContratista");
     const fLote = container.querySelector("#fLote");
     const fOrden = container.querySelector("#fOrden");
     const filas = Array.from(container.querySelectorAll(".fila-aplicacion"));
+
+    // Vuelve a armar las opciones de cada fila de producto con el pendiente
+    // del contratista recién elegido, conservando la selección de esa fila
+    // si el producto sigue siendo una opción válida.
+    function actualizarOpcionesProductos(contratistaId) {
+      filas.forEach((fila) => {
+        const select = fila.querySelector(".fProductoRow");
+        const valorPrevio = select.value;
+        const placeholder = select.querySelector("option[value='']")?.textContent || "Producto...";
+        select.innerHTML = `<option value="">${placeholder}</option>${optsConPendiente(insumos, cuenta, contratistaId)}`;
+        select.value = valorPrevio;
+      });
+    }
 
     filas.forEach((fila) => {
       fila.querySelector(".fProductoRow").addEventListener("change", () => {
@@ -153,6 +193,9 @@ const aplicacionesFitosanitariosView = {
     });
     const actualizarOrdenes = () => actualizarOrdenesDisponibles(fOrden, ordenes, fContratista.value, fLote.value);
     fContratista.addEventListener("change", () => {
+      const contratista = contratistas.find((c) => c.id === fContratista.value);
+      renderCuentaCard(container, cuenta, fContratista.value, contratista ? contratista.nombre : "");
+      actualizarOpcionesProductos(fContratista.value);
       filas.forEach((fila) => actualizarPendienteFila(fila, fContratista.value, cuenta));
       actualizarOrdenes();
     });
@@ -230,6 +273,7 @@ const aplicacionesFitosanitariosView = {
       };
       await dbPut(STORE, registro);
       window.dispatchEvent(new Event("appcampo-sync-now"));
+      toast("Aplicación registrada.");
       this.render(container);
     });
 
