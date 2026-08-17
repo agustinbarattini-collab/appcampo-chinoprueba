@@ -48,20 +48,17 @@ function renderCuentaCard(container, cuenta, contratistaId, contratistaNombre) {
       : '<div class="empty-state">Este contratista no tiene retiros de insumos registrados (Insumos → Salida).</div>');
 }
 
-// Igual que opts(), pero agrega el stock PENDIENTE de ese contratista para
-// cada producto directo en el texto de la opción (mismo criterio que en
-// Insumos, donde el desplegable ya muestra el stock de cada uno) — así se ve
-// de un vistazo sin tener que elegir el producto primero.
-function optsConPendiente(insumos, cuenta, contratistaId) {
-  return insumos
-    .slice()
-    .sort((a, b) => a.nombre.localeCompare(b.nombre))
-    .map((i) => {
-      if (!contratistaId) return `<option value="${i.id}">${i.nombre}</option>`;
-      const c = cuenta.find((x) => x.contratistaId === contratistaId && x.insumoId === i.id);
-      const pendiente = c ? c.pendiente : 0;
-      return `<option value="${i.id}">${i.nombre} — pendiente: ${pendiente} ${i.unidad || ""}</option>`;
-    })
+// Solo ofrece los productos que el contratista elegido tiene con pendiente
+// > 0 — los mismos que se ven en la tarjeta "Stock pendiente" de arriba. No
+// tiene sentido dejar elegir un producto que este contratista no retiró (o
+// ya usó/devolvió del todo). Sin contratista elegido todavía, no hay nada
+// para ofrecer.
+function optsConPendiente(cuenta, contratistaId) {
+  if (!contratistaId) return "";
+  return cuenta
+    .filter((c) => c.contratistaId === contratistaId && c.pendiente > 0)
+    .sort((a, b) => a.insumoNombre.localeCompare(b.insumoNombre))
+    .map((c) => `<option value="${c.insumoId}">${c.insumoNombre} — pendiente: ${c.pendiente} ${c.unidad || ""}</option>`)
     .join("");
 }
 
@@ -147,7 +144,7 @@ const aplicacionesFitosanitariosView = {
                   (_, i) => `
                 <div class="field fila-aplicacion">
                   <div class="row producto-row">
-                    <select class="fProductoRow"><option value="">Producto ${i + 1}...</option>${opts(insumos)}</select>
+                    <select class="fProductoRow"><option value="">Elegí el contratista arriba...</option></select>
                     <input type="number" step="0.01" class="fCantidadRow" placeholder="Cantidad total" />
                   </div>
                   <div class="muted hidden pendienteRow"></div>
@@ -180,8 +177,8 @@ const aplicacionesFitosanitariosView = {
       filas.forEach((fila) => {
         const select = fila.querySelector(".fProductoRow");
         const valorPrevio = select.value;
-        const placeholder = select.querySelector("option[value='']")?.textContent || "Producto...";
-        select.innerHTML = `<option value="">${placeholder}</option>${optsConPendiente(insumos, cuenta, contratistaId)}`;
+        const placeholder = contratistaId ? "Seleccionar..." : "Elegí el contratista arriba...";
+        select.innerHTML = `<option value="">${placeholder}</option>${optsConPendiente(cuenta, contratistaId)}`;
         select.value = valorPrevio;
       });
     }
