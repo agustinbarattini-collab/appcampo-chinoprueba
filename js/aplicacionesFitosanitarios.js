@@ -1,5 +1,5 @@
 import { dbGetAll, dbPut, dbDelete, uid } from "./db.js";
-import { getCuentaContratistas } from "./stockUtils.js";
+import { getCuentaContratistas, getOrdenesConEstado } from "./stockUtils.js";
 import { toast } from "./ui.js";
 
 const STORE = "aplicacionesFitosanitarios";
@@ -78,23 +78,23 @@ function actualizarPendienteFila(filaEl, contratistaId, cuenta) {
   }
 }
 
-function actualizarOrdenesDisponibles(select, ordenes, contratistaId, loteId) {
-  const disponibles = ordenes.filter(
-    (o) => o.contratistaId === contratistaId && (o.lotes || []).some((l) => l.loteId === loteId)
-  );
-  select.innerHTML =
-    '<option value="">Sin vincular a una orden</option>' +
-    disponibles.map((o) => `<option value="${o.id}">${o.nombre}${o.fechaLimite ? " (plazo " + o.fechaLimite + ")" : ""}</option>`).join("");
+// Solo se ofrecen las órdenes no completadas — una vez que están todos los
+// lotes aplicados no tiene sentido seguir eligiéndolas acá.
+function optsOrdenes(ordenesConEstado) {
+  return ordenesConEstado
+    .filter((o) => o.estado !== "completada")
+    .map((o) => `<option value="${o.id}">${o.nombre} — ${o.contratistaNombre}${o.fechaLimite ? " (plazo " + o.fechaLimite + ")" : ""}</option>`)
+    .join("");
 }
 
 const aplicacionesFitosanitariosView = {
   async render(container) {
-    const [contratistas, lotes, insumos, cuenta, ordenes] = await Promise.all([
+    const [contratistas, lotes, insumos, cuenta, ordenesConEstado] = await Promise.all([
       dbGetAll("contratistas"),
       dbGetAll("lotes"),
       dbGetAll("insumos"),
       getCuentaContratistas(),
-      dbGetAll("ordenesTrabajo"),
+      getOrdenesConEstado(),
     ]);
 
     if (contratistas.length === 0 || lotes.length === 0 || insumos.length === 0) {
@@ -117,6 +117,14 @@ const aplicacionesFitosanitariosView = {
       <div class="card">
         <form id="formAplicacion">
           <div class="field">
+            <label>Orden de Trabajo</label>
+            <select id="fOrden">
+              <option value="">Sin orden (cargar manualmente)</option>
+              ${optsOrdenes(ordenesConEstado)}
+            </select>
+            <div class="muted">Si elegís una orden, se completan solos el contratista, el lote y los productos planificados con su dosis.</div>
+          </div>
+          <div class="field">
             <label>Contratista</label>
             <select id="fContratista" required><option value="">Seleccionar...</option>${opts(contratistas)}</select>
           </div>
@@ -127,10 +135,6 @@ const aplicacionesFitosanitariosView = {
           <div class="field">
             <label>Lote</label>
             <select id="fLote" required><option value="">Seleccionar...</option>${opts(lotes)}</select>
-          </div>
-          <div class="field">
-            <label>Orden de Trabajo (opcional)</label>
-            <select id="fOrden"><option value="">Elegí primero contratista y lote...</option></select>
           </div>
           <div class="field">
             <label>Has aplicadas</label>
@@ -168,19 +172,66 @@ const aplicacionesFitosanitariosView = {
     const fContratista = container.querySelector("#fContratista");
     const fLote = container.querySelector("#fLote");
     const fOrden = container.querySelector("#fOrden");
+    const fHas = container.querySelector("#fHas");
     const filas = Array.from(container.querySelectorAll(".fila-aplicacion"));
 
-    // Vuelve a armar las opciones de cada fila de producto con el pendiente
-    // del contratista recién elegido, conservando la selección de esa fila
-    // si el producto sigue siendo una opción válida.
-    function actualizarOpcionesProductos(contratistaId) {
-      filas.forEach((fila) => {
+    function ordenActiva() {
+      const id = fOrden.value;
+      return id ? ordenesConEstado.find((o) => o.id === id) : null;
+    }
+
+    // Sin orden: mismo comportamiento de siempre (solo ofrece lo que el
+    // contratista tiene pendiente). Con una orden elegida: ofrece los
+    // productos PLANIFICADOS de esa orden (con su dosis/ha de referencia),
+    // no el stock pendiente — la orden puede incluir algo que el contratista
+    // todavía no retiró por Insumos.
+    function actualizarOpcionesProductos(contratistaId, orden) {
+      filas.forEach((fila, i) => {
         const select = fila.querySelector(".fProductoRow");
-        const valorPrevio = select.value;
-        const placeholder = contratistaId ? "Seleccionar..." : "Elegí el contratista arriba...";
-        select.innerHTML = `<option value="">${placeholder}</option>${optsConPendiente(cuenta, contratistaId)}`;
-        select.value = valorPrevio;
+        if (orden) {
+          const plan = orden.comparacionProductos[i];
+          select.innerHTML =
+            '<option value="">Sin producto</option>' +
+            orden.comparacionProductos
+              .map((p) => `<option value="${p.productoId}">${p.productoNombre} (${p.dosisPorHa} ${p.unidad || ""}/ha)</option>`)
+              .join("");
+          select.value = plan ? plan.productoId : "";
+        } else {
+          const valorPrevio = select.value;
+          const placeholder = contratistaId ? "Seleccionar..." : "Elegí el contratista arriba...";
+          select.innerHTML = `<option value="">${placeholder}</option>${optsConPendiente(cuenta, contratistaId)}`;
+          select.value = valorPrevio;
+        }
       });
+    }
+
+    // Con orden activa, la cantidad de cada fila se recalcula sola cada vez
+    // que cambian las has aplicadas (dosis/ha × has) — queda editable igual,
+    // por si lo que realmente se usó difirió un poco de lo planificado.
+    function actualizarCantidadesPorOrden(orden) {
+      if (!orden) return;
+      const has = parseFloat(fHas.value) || 0;
+      filas.forEach((fila, i) => {
+        const plan = orden.comparacionProductos[i];
+        if (!plan) return;
+        const cantidadInput = fila.querySelector(".fCantidadRow");
+        cantidadInput.placeholder = `${plan.dosisPorHa} ${plan.unidad || ""}/ha`;
+        cantidadInput.value = has > 0 ? Math.round(plan.dosisPorHa * has * 100) / 100 : "";
+      });
+    }
+
+    function poblarLoteSegunOrden(orden) {
+      if (!orden) {
+        fLote.innerHTML = '<option value="">Seleccionar...</option>' + opts(lotes);
+        return;
+      }
+      fLote.innerHTML =
+        '<option value="">Seleccionar...</option>' +
+        orden.lotes
+          .slice()
+          .sort((a, b) => a.loteNombre.localeCompare(b.loteNombre))
+          .map((l) => `<option value="${l.loteId}">${l.loteNombre}${l.aplicado ? " (ya aplicado)" : ""}</option>`)
+          .join("");
     }
 
     filas.forEach((fila) => {
@@ -188,16 +239,29 @@ const aplicacionesFitosanitariosView = {
         actualizarPendienteFila(fila, fContratista.value, cuenta);
       });
     });
-    const actualizarOrdenes = () => actualizarOrdenesDisponibles(fOrden, ordenes, fContratista.value, fLote.value);
-    fContratista.addEventListener("change", () => {
+
+    fOrden.addEventListener("change", () => {
+      const orden = ordenActiva();
+      fContratista.disabled = !!orden;
+      if (orden) fContratista.value = orden.contratistaId || "";
       const contratista = contratistas.find((c) => c.id === fContratista.value);
       renderCuentaCard(container, cuenta, fContratista.value, contratista ? contratista.nombre : "");
-      actualizarOpcionesProductos(fContratista.value);
+      poblarLoteSegunOrden(orden);
+      actualizarOpcionesProductos(fContratista.value, orden);
+      actualizarCantidadesPorOrden(orden);
       filas.forEach((fila) => actualizarPendienteFila(fila, fContratista.value, cuenta));
-      actualizarOrdenes();
     });
-    fLote.addEventListener("change", actualizarOrdenes);
-    actualizarOrdenes();
+
+    fContratista.addEventListener("change", () => {
+      // Con una orden elegida, el contratista queda bloqueado (viene de la
+      // orden) — este listener solo importa en el caso "sin orden".
+      const contratista = contratistas.find((c) => c.id === fContratista.value);
+      renderCuentaCard(container, cuenta, fContratista.value, contratista ? contratista.nombre : "");
+      actualizarOpcionesProductos(fContratista.value, ordenActiva());
+      filas.forEach((fila) => actualizarPendienteFila(fila, fContratista.value, cuenta));
+    });
+
+    fHas.addEventListener("input", () => actualizarCantidadesPorOrden(ordenActiva()));
 
     container.querySelector("#formAplicacion").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -208,7 +272,7 @@ const aplicacionesFitosanitariosView = {
       const contratista = contratistas.find((c) => c.id === contratistaId);
       const lote = lotes.find((l) => l.id === loteId);
       const ordenId = fOrden.value;
-      const orden = ordenId ? ordenes.find((o) => o.id === ordenId) : null;
+      const orden = ordenId ? ordenesConEstado.find((o) => o.id === ordenId) : null;
 
       const productos = [];
       const avisos = [];

@@ -70,7 +70,7 @@ function flattenOrdenTrabajo(r) {
   out.lotesNombres = (r.lotes || []).map((l) => l.loteNombre).join(", ");
   (r.productosPlanificados || []).forEach((p, i) => {
     out[`producto${i + 1}Nombre`] = p.productoNombre;
-    out[`producto${i + 1}Cantidad`] = p.cantidad;
+    out[`producto${i + 1}DosisPorHa`] = p.dosisPorHa;
     out[`producto${i + 1}Unidad`] = p.unidad;
   });
   out.lotes = undefined;
@@ -573,14 +573,14 @@ async function unflattenOrdenTrabajo(fila) {
   const productosPlanificados = [];
   for (let i = 1; i <= 6; i++) {
     const nombre = fila[`producto${i}Nombre`];
-    const cantidad = fila[`producto${i}Cantidad`];
-    if (!nombre || cantidad === "" || cantidad === undefined) continue;
+    const dosisPorHa = fila[`producto${i}DosisPorHa`];
+    if (!nombre || dosisPorHa === "" || dosisPorHa === undefined) continue;
     const productoId = await resolverIdPorNombre("insumos", nombre, { unidad: fila[`producto${i}Unidad`] || "" });
     productosPlanificados.push({
       productoId,
       productoNombre: String(nombre).trim(),
       unidad: fila[`producto${i}Unidad`] || "",
-      cantidad: parseFloat(cantidad) || 0,
+      dosisPorHa: parseFloat(dosisPorHa) || 0,
     });
   }
   const nombreOrden = String(fila.nombre || "").trim();
@@ -594,6 +594,7 @@ async function unflattenOrdenTrabajo(fila) {
     lotes,
     fechaAsignacion: fila.fechaAsignacion || "",
     fechaLimite: fila.fechaLimite || "",
+    has: parseFloat(fila.has) || 0,
     productosPlanificados,
     observaciones: fila.observaciones || "",
     fechaCreacion: fila.fechaCreacion || new Date().toISOString(),

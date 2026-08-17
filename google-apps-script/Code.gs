@@ -93,15 +93,20 @@ const SHEETS = {
   },
   ordenTrabajo: {
     name: "Órdenes de Trabajo",
+    // La carga esta pensada para el asesor, directo en esta pestaña (no hay
+    // formulario de alta en la app — Órdenes de Trabajo pasó a ser de solo
+    // lectura para los contratistas, 2026-08-17). Cada producto ahora es
+    // dosis por hectárea, no cantidad total fija — la app calcula la
+    // necesidad total multiplicando por "has" (agregado al final).
     headers: [
       "id", "nombre", "contratistaNombre", "lotesNombres", "fechaAsignacion", "fechaLimite",
-      "producto1Nombre", "producto1Cantidad", "producto1Unidad",
-      "producto2Nombre", "producto2Cantidad", "producto2Unidad",
-      "producto3Nombre", "producto3Cantidad", "producto3Unidad",
-      "producto4Nombre", "producto4Cantidad", "producto4Unidad",
-      "producto5Nombre", "producto5Cantidad", "producto5Unidad",
-      "producto6Nombre", "producto6Cantidad", "producto6Unidad",
-      "observaciones", "fechaCreacion", "fechaCreacionRegistro", "fechaSincronizacion",
+      "producto1Nombre", "producto1DosisPorHa", "producto1Unidad",
+      "producto2Nombre", "producto2DosisPorHa", "producto2Unidad",
+      "producto3Nombre", "producto3DosisPorHa", "producto3Unidad",
+      "producto4Nombre", "producto4DosisPorHa", "producto4Unidad",
+      "producto5Nombre", "producto5DosisPorHa", "producto5Unidad",
+      "producto6Nombre", "producto6DosisPorHa", "producto6Unidad",
+      "observaciones", "fechaCreacion", "fechaCreacionRegistro", "fechaSincronizacion", "has",
     ],
   },
 };

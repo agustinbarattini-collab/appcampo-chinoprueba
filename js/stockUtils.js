@@ -186,19 +186,29 @@ async function getOrdenesConEstado() {
           aplicadoPorProducto[p.productoId] = (aplicadoPorProducto[p.productoId] || 0) + p.cantidad;
         }
       }
+      // Cada producto planificado ahora se carga como dosis por hectárea
+      // (no como cantidad total fija) — la necesidad total se calcula acá
+      // multiplicando por las has de la orden, nunca se guarda, mismo
+      // criterio que el resto de los saldos/stocks de la app.
+      const has = o.has || 0;
       const comparacionProductos = (o.productosPlanificados || []).map((p) => {
+        const dosisPorHa = p.dosisPorHa || 0;
+        const necesidadTotal = Math.round(dosisPorHa * has * 100) / 100;
         const aplicado = aplicadoPorProducto[p.productoId] || 0;
         return {
+          productoId: p.productoId,
           productoNombre: p.productoNombre,
           unidad: p.unidad,
-          planificado: p.cantidad,
+          dosisPorHa,
+          necesidadTotal,
           aplicado,
-          diferencia: Math.round((aplicado - p.cantidad) * 100) / 100,
+          diferencia: Math.round((aplicado - necesidadTotal) * 100) / 100,
         };
       });
 
       return {
         ...o,
+        has,
         lotes,
         lotesFaltantes,
         lotesAplicadosCount: lotes.length - lotesFaltantes.length,
@@ -208,7 +218,7 @@ async function getOrdenesConEstado() {
         comparacionProductos,
       };
     })
-    .sort((a, b) => (a.fechaLimite || "").localeCompare(b.fechaLimite || ""));
+    .sort((a, b) => (a.fechaLimite || a.fechaAsignacion || "").localeCompare(b.fechaLimite || b.fechaAsignacion || ""));
 }
 
 export {
