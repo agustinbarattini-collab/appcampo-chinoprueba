@@ -1,6 +1,6 @@
 import { dbGetAll, dbPut, dbDelete, uid } from "./db.js";
 import { getCuentaContratistas, getOrdenesConEstado } from "./stockUtils.js";
-import { toast, formatearFechaCorta } from "./ui.js";
+import { toast, formatearFechaCorta, parseNumero } from "./ui.js";
 
 const STORE = "aplicacionesFitosanitarios";
 const NUM_PRODUCTOS = 6;
@@ -136,7 +136,7 @@ const aplicacionesFitosanitariosView = {
           </div>
           <div class="field">
             <label>Has aplicadas</label>
-            <input type="number" step="0.01" id="fHas" required />
+            <input type="text" inputmode="decimal" id="fHas" required />
           </div>
           <div class="field">
             <label>Productos utilizados (hasta ${NUM_PRODUCTOS})</label>
@@ -147,7 +147,7 @@ const aplicacionesFitosanitariosView = {
                 <div class="field fila-aplicacion">
                   <div class="row producto-row">
                     <select class="fProductoRow"><option value="">Elegí el contratista arriba...</option></select>
-                    <input type="number" step="0.01" class="fCantidadRow" placeholder="Cantidad total" />
+                    <input type="text" inputmode="decimal" class="fCantidadRow" placeholder="Cantidad total" />
                   </div>
                   <div class="muted hidden pendienteRow"></div>
                 </div>`
@@ -208,7 +208,7 @@ const aplicacionesFitosanitariosView = {
     // por si lo que realmente se usó difirió un poco de lo planificado.
     function actualizarCantidadesPorOrden(orden) {
       if (!orden) return;
-      const has = parseFloat(fHas.value) || 0;
+      const has = parseNumero(fHas.value);
       filas.forEach((fila, i) => {
         const plan = orden.comparacionProductos[i];
         if (!plan) return;
@@ -276,7 +276,7 @@ const aplicacionesFitosanitariosView = {
       const avisos = [];
       for (const fila of filas) {
         const productoId = fila.querySelector(".fProductoRow").value;
-        const cantidad = parseFloat(fila.querySelector(".fCantidadRow").value) || 0;
+        const cantidad = parseNumero(fila.querySelector(".fCantidadRow").value);
         if (!productoId || cantidad <= 0) continue;
 
         const producto = insumos.find((i) => i.id === productoId);
@@ -324,7 +324,7 @@ const aplicacionesFitosanitariosView = {
         loteNombre: lote ? lote.nombre : "",
         ordenTrabajoId: ordenId || null,
         ordenTrabajoNombre: orden ? orden.nombre : "",
-        hectareas: parseFloat(container.querySelector("#fHas").value) || 0,
+        hectareas: parseNumero(container.querySelector("#fHas").value),
         productos,
         comentarios: container.querySelector("#fComentarios").value.trim(),
         sincronizado: false,

@@ -1,6 +1,6 @@
 import { dbGetAll, dbPut, dbDelete, uid } from "./db.js";
 import { getAvancePlanes } from "./stockUtils.js";
-import { toast } from "./ui.js";
+import { toast, parseNumero } from "./ui.js";
 
 const STORE_AVANCE = "avanceSiembra";
 const STORE_CIERRE = "cierresSiembra";
@@ -148,7 +148,7 @@ function renderFormPlan(container, formArea, { lotesMaestro, planesConEstado, ca
       </div>
       <div class="field">
         <label>Superficie teórica (ha)</label>
-        <input type="number" step="0.01" id="fSuperficie" required />
+        <input type="text" inputmode="decimal" id="fSuperficie" required />
       </div>
       <button type="submit">Agregar al plan</button>
     </form>
@@ -225,7 +225,7 @@ function renderFormPlan(container, formArea, { lotesMaestro, planesConEstado, ca
       cultivo,
       campaniaId: campania.id,
       campaniaNombre: campania.nombre,
-      superficieTeorica: parseFloat(container.querySelector("#fSuperficie").value) || 0,
+      superficieTeorica: parseNumero(container.querySelector("#fSuperficie").value),
     });
     onSaved();
   });
@@ -248,7 +248,7 @@ function renderFormAvance(container, formArea, { planesAbiertos }, onSaved) {
       </div>
       <div class="field">
         <label>Has sembradas</label>
-        <input type="number" step="0.01" id="fHas" required />
+        <input type="text" inputmode="decimal" id="fHas" required />
       </div>
       <div class="field">
         <label>Comentarios</label>
@@ -276,7 +276,7 @@ function renderFormAvance(container, formArea, { planesAbiertos }, onSaved) {
       cultivo: plan ? plan.cultivo : "",
       campaniaId: plan ? plan.campaniaId : "",
       campaniaNombre: plan ? plan.campaniaNombre : "",
-      hasSembradas: parseFloat(container.querySelector("#fHas").value) || 0,
+      hasSembradas: parseNumero(container.querySelector("#fHas").value),
       comentarios: container.querySelector("#fComentarios").value.trim(),
       marcaCierre: cerrar,
       sincronizado: false,
@@ -315,7 +315,7 @@ function renderFormCierre(container, formArea, { pendientes }, onSaved) {
           <div class="field"><label>Variedad</label><input type="text" class="fSemillaVariedad" /></div>
           <div class="field">
             <label>Kg de semilla (total)</label>
-            <input type="number" step="0.01" class="fSemillaKg" />
+            <input type="text" inputmode="decimal" class="fSemillaKg" />
             <div class="muted fPromedioSemillaKg"></div>
           </div>
         </div>`
@@ -328,7 +328,7 @@ function renderFormCierre(container, formArea, { pendientes }, onSaved) {
           <div class="field"><label>Híbrido</label><input type="text" class="fSemillaHibrido" /></div>
           <div class="field">
             <label>Bolsas de semilla (total)</label>
-            <input type="number" step="0.01" class="fSemillaBolsas" />
+            <input type="text" inputmode="decimal" class="fSemillaBolsas" />
             <div class="muted fPromedioSemillaBolsas"></div>
           </div>
         </div>`
@@ -336,7 +336,7 @@ function renderFormCierre(container, formArea, { pendientes }, onSaved) {
         }
         <div class="row">
           <div class="field"><label>Tipo de fertilizante</label><input type="text" class="fFertilizanteTipo" /></div>
-          <div class="field"><label>Kg de fertilizante</label><input type="number" step="0.01" class="fFertilizanteKg" /></div>
+          <div class="field"><label>Kg de fertilizante</label><input type="text" inputmode="decimal" class="fFertilizanteKg" /></div>
         </div>
         <div class="field">
           <label>Observaciones</label>
@@ -357,7 +357,7 @@ function renderFormCierre(container, formArea, { pendientes }, onSaved) {
       const promedioEl = block.querySelector(promedioSel);
       if (!input || !promedioEl) return;
       input.addEventListener("input", () => {
-        const total = parseFloat(input.value) || 0;
+        const total = parseNumero(input.value);
         if (!plan.hasSembradas || !total) {
           promedioEl.textContent = "";
           return;
@@ -385,7 +385,7 @@ function renderFormCierre(container, formArea, { pendientes }, onSaved) {
         const el = getEl(sel);
         return el ? el.value.trim() : "";
       };
-      const getNum = (sel) => parseFloat(getVal(sel)) || 0;
+      const getNum = (sel) => parseNumero(getVal(sel));
 
       const semillaKg = getNum(".fSemillaKg");
       const semillaBolsas = getNum(".fSemillaBolsas");

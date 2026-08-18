@@ -1,6 +1,6 @@
 import { dbGetAll, dbPut, dbDelete, uid } from "./db.js";
 import { getInsumosConStock, getSaldoOrden } from "./stockUtils.js";
-import { toast } from "./ui.js";
+import { toast, parseNumero } from "./ui.js";
 
 const STORE = "movimientosInsumos";
 
@@ -114,7 +114,7 @@ function renderFormIngreso(container, formArea, { proveedores, insumos }, onSave
       </div>
       <div class="field">
         <label>Cantidad</label>
-        <input type="number" step="0.01" id="fCantidad" required />
+        <input type="text" inputmode="decimal" id="fCantidad" required />
       </div>
       <div class="field">
         <label>Foto del remito (opcional)</label>
@@ -147,7 +147,7 @@ function renderFormIngreso(container, formArea, { proveedores, insumos }, onSave
       insumoId,
       insumoNombre: insumo ? insumo.nombre : "",
       unidad: insumo ? insumo.unidad : "",
-      cantidad: parseFloat(container.querySelector("#fCantidad").value) || 0,
+      cantidad: parseNumero(container.querySelector("#fCantidad").value),
       foto: fotoInput.files && fotoInput.files[0] ? fotoInput.files[0] : null,
       observaciones: container.querySelector("#fObs").value.trim(),
       sincronizado: false,
@@ -194,7 +194,7 @@ function renderFormSalida(container, formArea, { contratistas, insumos, ordenes 
       </div>
       <div class="field">
         <label>Cantidad</label>
-        <input type="number" step="0.01" id="fCantidad" required />
+        <input type="text" inputmode="decimal" id="fCantidad" required />
       </div>
       <div class="field">
         <label>Observaciones</label>
@@ -213,7 +213,7 @@ function renderFormSalida(container, formArea, { contratistas, insumos, ordenes 
 
     const contratista = contratistas.find((c) => c.id === contratistaId);
     const insumo = insumos.find((i) => i.id === insumoId);
-    const cantidad = parseFloat(container.querySelector("#fCantidad").value) || 0;
+    const cantidad = parseNumero(container.querySelector("#fCantidad").value);
 
     if (insumo && cantidad > insumo.stock) {
       const continuar = confirm(
@@ -290,7 +290,7 @@ function renderFormDevolucion(container, formArea, { ordenes, insumos }, onSaved
       </div>
       <div class="field">
         <label>Cantidad devuelta</label>
-        <input type="number" step="0.01" id="fCantidad" required />
+        <input type="text" inputmode="decimal" id="fCantidad" required />
       </div>
       <div class="field">
         <label>Observaciones</label>
@@ -338,7 +338,7 @@ function renderFormDevolucion(container, formArea, { ordenes, insumos }, onSaved
 
     const orden = ordenes.find((o) => o.id === ordenId);
     const insumo = insumos.find((i) => i.id === insumoId);
-    const cantidad = parseFloat(container.querySelector("#fCantidad").value) || 0;
+    const cantidad = parseNumero(container.querySelector("#fCantidad").value);
     const saldo = saldoActual.find((s) => s.insumoId === insumoId);
 
     if (saldo && cantidad > saldo.pendiente) {

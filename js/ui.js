@@ -32,4 +32,19 @@ function formatearFechaCorta(fecha) {
   return `${dia}/${mes}/${anio}`;
 }
 
-export { toast, formatearFechaCorta };
+// Convierte lo que haya en un campo numérico a número real, aceptando tanto
+// "." como "," como separador decimal. Los inputs type="number" nativos
+// SOLO aceptan "." — en un teclado en español (celulares sobre todo) la
+// tecla decimal suele insertar "," y el navegador la descarta en silencio,
+// dejando el valor mal armado (ej. "1,3" termina guardado como "13", diez
+// veces más grande, sin ningún aviso). Por eso los campos numéricos de la
+// app pasan a ser type="text" + inputmode="decimal" (para que el teclado
+// numérico siga apareciendo en el celular) y se leen siempre con esta
+// función en vez de parseFloat() directo. Devuelve 0 si no hay nada válido.
+function parseNumero(valor) {
+  const texto = String(valor ?? "").trim().replace(",", ".");
+  const n = parseFloat(texto);
+  return Number.isNaN(n) ? 0 : n;
+}
+
+export { toast, formatearFechaCorta, parseNumero };
