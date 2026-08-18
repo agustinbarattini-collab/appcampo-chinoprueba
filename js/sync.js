@@ -586,8 +586,12 @@ async function unflattenOrdenTrabajo(fila) {
   const nombreOrden = String(fila.nombre || "").trim();
   const existentes = await dbGetAll("ordenesTrabajo");
   const existente = existentes.find((o) => o.nombre.trim().toLowerCase() === nombreOrden.toLowerCase());
+  // "id" ahora es una columna que llena el sistema, no el asesor (queda
+  // pintada de gris en la Sheet) — para una orden realmente nueva, casi
+  // siempre va a venir vacía, así que hace falta generar un id acá mismo en
+  // vez de asumir que la fila trae uno.
   return {
-    id: existente ? existente.id : fila.id,
+    id: existente ? existente.id : fila.id || uid(),
     nombre: nombreOrden,
     contratistaId,
     contratistaNombre: String(fila.contratistaNombre || "").trim(),
