@@ -20,4 +20,16 @@ function toast(mensaje, duracionMs = 2200) {
   }, duracionMs);
 }
 
-export { toast };
+// Formatea una fecha a dd/mm/aaaa para mostrar. Acepta tanto "2026-08-28"
+// (input type=date) como "2026-08-28T03:00:00.000Z" (Date de Google Sheets
+// serializado) — en ambos casos toma solo la parte de fecha, ignorando la
+// hora (que para estos usos no aporta nada y ensucia la lectura).
+function formatearFechaCorta(fecha) {
+  if (!fecha) return "sin definir";
+  const soloFecha = String(fecha).slice(0, 10);
+  const [anio, mes, dia] = soloFecha.split("-");
+  if (!anio || !mes || !dia) return String(fecha);
+  return `${dia}/${mes}/${anio}`;
+}
+
+export { toast, formatearFechaCorta };

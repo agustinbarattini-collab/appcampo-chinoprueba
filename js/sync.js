@@ -639,7 +639,18 @@ async function pullAll() {
     const existentes = await dbGetAll(store);
     const idsExistentes = new Set(existentes.map((e) => e.id));
     for (const fila of filas) {
-      if (!fila.id || idsExistentes.has(fila.id)) continue;
+      // "ordenTrabajo" es distinto a los demás tipos: el asesor no tipea un
+      // id (esa columna la llena el sistema, ver aplicarValidacionOrdenesTrabajo
+      // en Code.gs), así que una orden recién cargada en la Sheet llega con
+      // fila.id vacío — el filtro genérico por id la descartaría siempre sin
+      // llegar nunca a unflattenOrdenTrabajo (que sí sabe resolverla por
+      // nombre). Para este tipo se usa "nombre" como señal de fila real, y
+      // se deja que unflattenOrdenTrabajo decida si es nueva o ya existía.
+      if (tipo === "ordenTrabajo") {
+        if (!fila.nombre) continue;
+      } else if (!fila.id || idsExistentes.has(fila.id)) {
+        continue;
+      }
       try {
         const registro = await unflatten(fila);
         await dbPut(store, registro);

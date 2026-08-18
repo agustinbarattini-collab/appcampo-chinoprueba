@@ -1,5 +1,6 @@
 import { dbGetAll } from "./db.js";
 import { getOrdenesConEstado } from "./stockUtils.js";
+import { formatearFechaCorta } from "./ui.js";
 
 function etiquetaEstado(o) {
   if (o.estado === "completada") return { texto: "Completada", clase: "sincronizado" };
@@ -9,10 +10,11 @@ function etiquetaEstado(o) {
 
 // Órdenes de Trabajo pasó a ser de solo lectura (2026-08-17): las carga el
 // asesor directo en la Sheet ("Órdenes de Trabajo"), no hay alta desde acá.
-// La app solo las muestra ordenadas por fecha, con un filtro por contratista
-// (mismo criterio que la tarjeta de stock pendiente en Fitosanitarios) para
-// que cada uno vea rápido lo suyo: has, y por producto la dosis/ha cargada
-// por el asesor junto con la necesidad total ya calculada (dosis × has).
+// La app solo las muestra, separadas en pendientes/realizadas y ordenadas
+// por fecha de inicio, con un filtro por contratista (mismo criterio que la
+// tarjeta de stock pendiente en Fitosanitarios) para que cada uno vea rápido
+// lo suyo: has, y por producto la dosis/ha cargada por el asesor junto con
+// la necesidad total ya calculada (dosis × has).
 const ordenesTrabajoView = {
   state: { contratistaId: "" },
 
@@ -45,7 +47,8 @@ const ordenesTrabajoView = {
             .join("")}
         </select>
       </div>
-      <div class="card" id="listaOrdenes"></div>
+      <div class="card" id="listaPendientes"></div>
+      <div class="card" id="listaRealizadas"></div>
     `;
 
     container.querySelector("#fContratistaFiltro").addEventListener("change", (e) => {
@@ -57,19 +60,25 @@ const ordenesTrabajoView = {
       ? ordenes.filter((o) => o.contratistaId === this.state.contratistaId)
       : ordenes;
 
-    renderListadoOrdenes(container, ordenesFiltradas, this.state.contratistaId);
+    // Por fecha de inicio (fechaAsignacion) — antes se ordenaba por plazo,
+    // ahora separado en 2 grupos así que el orden de "arranque" es más útil.
+    const porFechaInicio = (a, b) => (a.fechaAsignacion || "").localeCompare(b.fechaAsignacion || "");
+    const pendientes = ordenesFiltradas.filter((o) => o.estado !== "completada").sort(porFechaInicio);
+    const realizadas = ordenesFiltradas.filter((o) => o.estado === "completada").sort(porFechaInicio);
+
+    renderListado(container.querySelector("#listaPendientes"), "Pendientes", pendientes, this.state.contratistaId, "Este contratista no tiene órdenes pendientes.");
+    renderListado(container.querySelector("#listaRealizadas"), "Realizadas", realizadas, this.state.contratistaId, "Este contratista no tiene órdenes realizadas todavía.");
   },
 };
 
-function renderListadoOrdenes(container, ordenes, contratistaId) {
-  const lista = container.querySelector("#listaOrdenes");
+function renderListado(lista, titulo, ordenes, contratistaId, mensajeVacioConFiltro) {
   if (ordenes.length === 0) {
-    lista.innerHTML = contratistaId
-      ? '<div class="empty-state">Este contratista no tiene órdenes asignadas.</div>'
-      : '<div class="empty-state">No hay órdenes cargadas.</div>';
+    lista.innerHTML = `<h2 style="margin-top:0;">${titulo} (0)</h2><div class="empty-state">${
+      contratistaId ? mensajeVacioConFiltro : "No hay órdenes en este grupo."
+    }</div>`;
     return;
   }
-  lista.innerHTML = `<h2 style="margin-top:0;">Órdenes (${ordenes.length})</h2>`;
+  lista.innerHTML = `<h2 style="margin-top:0;">${titulo} (${ordenes.length})</h2>`;
   for (const o of ordenes) {
     const { texto: estadoTxt, clase: estadoClase } = etiquetaEstado(o);
     const lotesTxt = o.lotes.map((l) => `${l.loteNombre}${l.aplicado ? " ✓" : ""}`).join(", ");
@@ -90,7 +99,7 @@ function renderListadoOrdenes(container, ordenes, contratistaId) {
       <div>
         <div><strong>${o.nombre}</strong> — ${o.contratistaNombre} <span class="pill ${estadoClase}">${estadoTxt}</span></div>
         <div class="muted">${o.has ? o.has + " ha · " : ""}Lotes (${o.lotesAplicadosCount}/${o.totalLotes} aplicados): ${lotesTxt}</div>
-        <div class="muted">Asignada: ${o.fechaAsignacion || "sin definir"} · Plazo: ${o.fechaLimite || "sin definir"}${o.observaciones ? " · " + o.observaciones : ""}</div>
+        <div class="muted">Inicio: ${formatearFechaCorta(o.fechaAsignacion)} · Plazo: ${formatearFechaCorta(o.fechaLimite)}${o.observaciones ? " · " + o.observaciones : ""}</div>
         ${productosTxt}
       </div>
     `;

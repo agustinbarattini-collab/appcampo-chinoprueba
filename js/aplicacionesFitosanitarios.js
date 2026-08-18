@@ -1,14 +1,12 @@
 import { dbGetAll, dbPut, dbDelete, uid } from "./db.js";
 import { getCuentaContratistas, getOrdenesConEstado } from "./stockUtils.js";
-import { toast } from "./ui.js";
+import { toast, formatearFechaCorta } from "./ui.js";
 
 const STORE = "aplicacionesFitosanitarios";
 const NUM_PRODUCTOS = 6;
 
-function nowLocalDatetime() {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function opts(list) {
@@ -83,7 +81,7 @@ function actualizarPendienteFila(filaEl, contratistaId, cuenta) {
 function optsOrdenes(ordenesConEstado) {
   return ordenesConEstado
     .filter((o) => o.estado !== "completada")
-    .map((o) => `<option value="${o.id}">${o.nombre} — ${o.contratistaNombre}${o.fechaLimite ? " (plazo " + o.fechaLimite + ")" : ""}</option>`)
+    .map((o) => `<option value="${o.id}">${o.nombre} — ${o.contratistaNombre}${o.fechaLimite ? " (plazo " + formatearFechaCorta(o.fechaLimite) + ")" : ""}</option>`)
     .join("");
 }
 
@@ -130,7 +128,7 @@ const aplicacionesFitosanitariosView = {
           </div>
           <div class="field">
             <label>Fecha</label>
-            <input type="datetime-local" id="fFecha" value="${nowLocalDatetime()}" required />
+            <input type="date" id="fFecha" value="${today()}" required />
           </div>
           <div class="field">
             <label>Lote</label>
@@ -357,7 +355,7 @@ async function renderListadoAplicaciones(container) {
     row.innerHTML = `
       <div>
         <div><strong>${a.loteNombre}</strong> — ${productosTxt} (${a.hectareas} ha)</div>
-        <div class="muted">${a.fecha?.replace("T", " ")} · ${a.contratistaNombre}${a.ordenTrabajoNombre ? " · orden " + a.ordenTrabajoNombre : ""}${a.comentarios ? " · " + a.comentarios : ""}</div>
+        <div class="muted">${formatearFechaCorta(a.fecha)} · ${a.contratistaNombre}${a.ordenTrabajoNombre ? " · orden " + a.ordenTrabajoNombre : ""}${a.comentarios ? " · " + a.comentarios : ""}</div>
       </div>
       <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
         <span class="pill ${a.sincronizado ? "sincronizado" : "pendiente"}">${a.sincronizado ? "Sincronizado" : "Pendiente"}</span>
