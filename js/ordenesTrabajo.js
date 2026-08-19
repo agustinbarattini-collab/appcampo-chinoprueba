@@ -113,6 +113,26 @@ function renderListado(lista, titulo, ordenes, contratistaId, mensajeVacioConFil
   }
 }
 
+function tablaProductosRealizada(o) {
+  const filasProductos = o.comparacionProductos.length
+    ? o.comparacionProductos
+        .map(
+          (p) => `
+      <tr>
+        <td>${p.productoNombre}</td>
+        <td>${p.dosisPorHa} ${p.unidad || ""}/ha</td>
+        <td>${p.dosisReal !== null ? p.dosisReal + " " + (p.unidad || "") + "/ha" : "—"}</td>
+      </tr>`
+        )
+        .join("")
+    : '<tr><td colspan="3" class="muted">Sin productos cargados.</td></tr>';
+  return `
+    <table class="tabla-orden">
+      <thead><tr><th>Producto</th><th>Dosis</th><th>Dosis real</th></tr></thead>
+      <tbody>${filasProductos}</tbody>
+    </table>`;
+}
+
 function renderListadoRealizadas(lista, ordenes, contratistaId) {
   if (ordenes.length === 0) {
     lista.innerHTML = `<h2 style="margin-top:0;">Realizadas (0)</h2><div class="empty-state">${
@@ -130,7 +150,8 @@ function renderListadoRealizadas(lista, ordenes, contratistaId) {
       <div style="padding-top:8px;">
         <div><strong>${o.nombre}</strong></div>
         <div class="muted">Fecha: ${formatearFechaCorta(o.fechaAsignacion)}${o.fechaLimite ? " – " + formatearFechaCorta(o.fechaLimite) : ""}</div>
-        ${tablaProductos(o)}
+        <div class="muted">Has realizadas: ${o.hasAplicadas} ha</div>
+        ${tablaProductosRealizada(o)}
       </div>
     `;
     lista.appendChild(det);

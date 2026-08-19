@@ -187,6 +187,12 @@ async function getOrdenesConEstado() {
           aplicadoPorProducto[p.productoId] = (aplicadoPorProducto[p.productoId] || 0) + p.cantidad;
         }
       }
+      // Has realmente aplicadas: suma de las hectáreas cargadas en cada
+      // Aplicación de Fitosanitarios vinculada a esta orden (una por lote),
+      // a diferencia de "has" que es lo planificado por el asesor en la
+      // Sheet. Con esto se puede calcular la dosis real (aplicado ÷ has
+      // reales) para comparar contra la dosis sugerida una vez terminada.
+      const hasAplicadas = Math.round(aplicacionesOrden.reduce((s, a) => s + (a.hectareas || 0), 0) * 100) / 100;
       // Cada producto planificado ahora se carga como dosis por hectárea
       // (no como cantidad total fija) — la necesidad total se calcula acá
       // multiplicando por las has de la orden, nunca se guarda, mismo
@@ -196,6 +202,7 @@ async function getOrdenesConEstado() {
         const dosisPorHa = p.dosisPorHa || 0;
         const necesidadTotal = Math.round(dosisPorHa * has * 100) / 100;
         const aplicado = aplicadoPorProducto[p.productoId] || 0;
+        const dosisReal = hasAplicadas > 0 ? Math.round((aplicado / hasAplicadas) * 100) / 100 : null;
         return {
           productoId: p.productoId,
           productoNombre: p.productoNombre,
@@ -203,6 +210,7 @@ async function getOrdenesConEstado() {
           dosisPorHa,
           necesidadTotal,
           aplicado,
+          dosisReal,
           diferencia: Math.round((aplicado - necesidadTotal) * 100) / 100,
         };
       });
@@ -210,6 +218,7 @@ async function getOrdenesConEstado() {
       return {
         ...o,
         has,
+        hasAplicadas,
         lotes,
         lotesFaltantes,
         lotesAplicadosCount: lotes.length - lotesFaltantes.length,
