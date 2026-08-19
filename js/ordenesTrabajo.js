@@ -61,9 +61,33 @@ const ordenesTrabajoView = {
     const realizadas = ordenesFiltradas.filter((o) => o.estado === "completada").sort(porFechaInicio);
 
     renderListado(container.querySelector("#listaPendientes"), "Pendientes", pendientes, this.state.contratistaId, "Este contratista no tiene órdenes pendientes.");
-    renderListado(container.querySelector("#listaRealizadas"), "Realizadas", realizadas, this.state.contratistaId, "Este contratista no tiene órdenes realizadas todavía.");
+    // Realizadas: se listan solo para consultar, así que van colapsadas
+    // (lote + fecha) y ocupan una sola línea hasta que se las abre a
+    // propósito — el detalle completo (productos, dosis, necesidad total)
+    // ya no importa para el día a día una vez que la orden está hecha.
+    renderListadoRealizadas(container.querySelector("#listaRealizadas"), realizadas, this.state.contratistaId);
   },
 };
+
+function tablaProductos(o) {
+  const filasProductos = o.comparacionProductos.length
+    ? o.comparacionProductos
+        .map(
+          (p) => `
+      <tr>
+        <td>${p.productoNombre}</td>
+        <td>${p.dosisPorHa} ${p.unidad || ""}/ha</td>
+        <td>${p.necesidadTotal} ${p.unidad || ""}</td>
+      </tr>`
+        )
+        .join("")
+    : '<tr><td colspan="3" class="muted">Sin productos cargados.</td></tr>';
+  return `
+    <table class="tabla-orden">
+      <thead><tr><th>Producto</th><th>Dosis</th><th>Necesidad total</th></tr></thead>
+      <tbody>${filasProductos}</tbody>
+    </table>`;
+}
 
 function renderListado(lista, titulo, ordenes, contratistaId, mensajeVacioConFiltro) {
   if (ordenes.length === 0) {
@@ -75,19 +99,6 @@ function renderListado(lista, titulo, ordenes, contratistaId, mensajeVacioConFil
   lista.innerHTML = `<h2 style="margin-top:0;">${titulo} (${ordenes.length})</h2>`;
   for (const o of ordenes) {
     const lotesTxt = o.lotes.map((l) => l.loteNombre).join(", ");
-    const filasProductos = o.comparacionProductos.length
-      ? o.comparacionProductos
-          .map(
-            (p) => `
-        <tr>
-          <td>${p.productoNombre}</td>
-          <td>${p.dosisPorHa} ${p.unidad || ""}/ha</td>
-          <td>${p.necesidadTotal} ${p.unidad || ""}</td>
-        </tr>`
-          )
-          .join("")
-      : '<tr><td colspan="3" class="muted">Sin productos cargados.</td></tr>';
-
     const row = document.createElement("div");
     row.className = "list-item";
     row.style.flexDirection = "column";
@@ -96,12 +107,33 @@ function renderListado(lista, titulo, ordenes, contratistaId, mensajeVacioConFil
       <div><strong>${o.nombre}</strong></div>
       <div class="muted">Lote${o.lotes.length > 1 ? "s" : ""}: ${lotesTxt}</div>
       <div class="muted">Fecha: ${formatearFechaCorta(o.fechaAsignacion)}${o.fechaLimite ? " – " + formatearFechaCorta(o.fechaLimite) : ""}</div>
-      <table class="tabla-orden">
-        <thead><tr><th>Producto</th><th>Dosis</th><th>Necesidad total</th></tr></thead>
-        <tbody>${filasProductos}</tbody>
-      </table>
+      ${tablaProductos(o)}
     `;
     lista.appendChild(row);
+  }
+}
+
+function renderListadoRealizadas(lista, ordenes, contratistaId) {
+  if (ordenes.length === 0) {
+    lista.innerHTML = `<h2 style="margin-top:0;">Realizadas (0)</h2><div class="empty-state">${
+      contratistaId ? "Este contratista no tiene órdenes realizadas todavía." : "No hay órdenes realizadas."
+    }</div>`;
+    return;
+  }
+  lista.innerHTML = `<h2 style="margin-top:0;">Realizadas (${ordenes.length})</h2>`;
+  for (const o of ordenes) {
+    const lotesTxt = o.lotes.map((l) => l.loteNombre).join(", ");
+    const det = document.createElement("details");
+    det.className = "orden-realizada";
+    det.innerHTML = `
+      <summary>${lotesTxt} — ${formatearFechaCorta(o.fechaAsignacion)}</summary>
+      <div style="padding-top:8px;">
+        <div><strong>${o.nombre}</strong></div>
+        <div class="muted">Fecha: ${formatearFechaCorta(o.fechaAsignacion)}${o.fechaLimite ? " – " + formatearFechaCorta(o.fechaLimite) : ""}</div>
+        ${tablaProductos(o)}
+      </div>
+    `;
+    lista.appendChild(det);
   }
 }
 

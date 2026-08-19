@@ -207,6 +207,18 @@ button:disabled {
 .pill.pendiente { background: #fdecea; color: #c0392b; }
 .pill.sincronizado { background: #e6f4ea; color: var(--color-primario); }
 
+.orden-realizada {
+  padding: 8px 0;
+  border-bottom: 1px solid #eceeeb;
+}
+
+.orden-realizada:last-child { border-bottom: none; }
+
+.orden-realizada summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
 .tabla-orden {
   width: 100%;
   border-collapse: collapse;

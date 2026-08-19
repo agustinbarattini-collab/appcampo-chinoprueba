@@ -84,18 +84,19 @@ async function getInsumosConStock() {
   });
 }
 
-async function getSaldoOrden(ordenId) {
-  const movs = (await dbGetAll("movimientosInsumos")).filter((m) => m.ordenTrabajoId === ordenId);
-  const map = {};
-  for (const m of movs) {
-    if (m.tipo !== "salida" && m.tipo !== "devolucion") continue;
-    if (!map[m.insumoId]) {
-      map[m.insumoId] = { insumoId: m.insumoId, insumoNombre: m.insumoNombre, unidad: m.unidad, salida: 0, devuelto: 0 };
-    }
-    if (m.tipo === "salida") map[m.insumoId].salida += m.cantidad;
-    else map[m.insumoId].devuelto += m.cantidad;
-  }
-  return Object.values(map).map((x) => ({ ...x, pendiente: Math.max(0, x.salida - x.devuelto) }));
+// Saldo global de cada insumo que salió (a cualquier contratista) y todavía
+// no se devolvió — ya no se agrupa por orden de trabajo (se sacó ese campo
+// de Insumos → Salida/Devolución), así que la devolución ofrece cualquier
+// insumo con saldo pendiente, sin importar a quién se le entregó.
+async function getSaldoInsumosPendientes() {
+  const [insumos, movs] = await Promise.all([dbGetAll("insumos"), dbGetAll("movimientosInsumos")]);
+  return insumos
+    .map((i) => {
+      const salidas = movs.filter((m) => m.tipo === "salida" && m.insumoId === i.id).reduce((s, m) => s + m.cantidad, 0);
+      const devoluciones = movs.filter((m) => m.tipo === "devolucion" && m.insumoId === i.id).reduce((s, m) => s + m.cantidad, 0);
+      return { ...i, pendiente: salidas - devoluciones };
+    })
+    .filter((i) => i.pendiente > 0);
 }
 
 async function getCuentaContratistas() {
@@ -226,7 +227,7 @@ export {
   agruparSilosPorNombreCultivo,
   getStockGranosPorCultivo,
   getInsumosConStock,
-  getSaldoOrden,
+  getSaldoInsumosPendientes,
   getCuentaContratistas,
   getAvancePlanes,
   getOrdenesConEstado,

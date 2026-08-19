@@ -435,23 +435,12 @@ async function unflattenMovimiento(fila) {
     const proveedorId = await resolverIdPorNombre("proveedores", fila.proveedorNombre);
     return { ...base, proveedorId, proveedorNombre: String(fila.proveedorNombre || "").trim(), foto: null };
   }
-  if (fila.tipo === "salida") {
-    const orden = await resolverOrden(fila.ordenTrabajoNombre, fila.contratistaNombre);
-    return {
-      ...base,
-      ordenTrabajoId: orden ? orden.id : null,
-      ordenTrabajoNombre: String(fila.ordenTrabajoNombre || "").trim(),
-      contratistaId: orden ? orden.contratistaId : null,
-      contratistaNombre: String(fila.contratistaNombre || "").trim(),
-    };
-  }
-  // devolucion
-  const orden = await resolverOrden(fila.ordenTrabajoNombre, fila.contratistaNombre);
+  // salida y devolución: ambas llevan contratista directo — ya no pasan por
+  // una orden de trabajo (se sacó ese campo de Insumos → Salida/Devolución).
+  const contratistaId = await resolverIdPorNombre("contratistas", fila.contratistaNombre);
   return {
     ...base,
-    ordenTrabajoId: orden ? orden.id : null,
-    ordenTrabajoNombre: String(fila.ordenTrabajoNombre || "").trim(),
-    contratistaId: orden ? orden.contratistaId : null,
+    contratistaId,
     contratistaNombre: String(fila.contratistaNombre || "").trim(),
   };
 }
