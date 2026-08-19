@@ -121,6 +121,7 @@ const aplicacionesFitosanitariosView = {
           <div class="field">
             <label>Has aplicadas</label>
             <input type="text" inputmode="decimal" id="fHas" required />
+            <div class="muted hidden" id="hasSugeridaInfo"></div>
           </div>
           <div class="field">
             <label>Productos utilizados (hasta ${NUM_PRODUCTOS})</label>
@@ -155,6 +156,7 @@ const aplicacionesFitosanitariosView = {
     const fLote = container.querySelector("#fLote");
     const fOrden = container.querySelector("#fOrden");
     const fHas = container.querySelector("#fHas");
+    const hasSugeridaInfo = container.querySelector("#hasSugeridaInfo");
     const filas = Array.from(container.querySelectorAll(".fila-aplicacion"));
 
     function ordenActiva() {
@@ -215,6 +217,15 @@ const aplicacionesFitosanitariosView = {
       filas.forEach((fila, i) => actualizarDosisFila(fila, i));
     }
 
+    function actualizarHasSugerida(orden) {
+      if (!orden || !orden.has) {
+        hasSugeridaInfo.classList.add("hidden");
+        return;
+      }
+      hasSugeridaInfo.classList.remove("hidden");
+      hasSugeridaInfo.textContent = `Has sugeridas: ${orden.has} ha`;
+    }
+
     function poblarLoteSegunOrden(orden) {
       if (!orden) {
         fLote.innerHTML = '<option value="">Seleccionar...</option>' + opts(lotes);
@@ -240,6 +251,7 @@ const aplicacionesFitosanitariosView = {
       const contratista = contratistas.find((c) => c.id === fContratista.value);
       renderCuentaCard(container, cuenta, fContratista.value, contratista ? contratista.nombre : "");
       poblarLoteSegunOrden(orden);
+      actualizarHasSugerida(orden);
       actualizarOpcionesProductos(fContratista.value, orden);
       // Nueva orden: se limpia lo que se haya tipeado antes de "total usado"
       // para que el contratista cargue lo que realmente usó de esta orden.
