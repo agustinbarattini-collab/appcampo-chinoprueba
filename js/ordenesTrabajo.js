@@ -2,12 +2,6 @@ import { dbGetAll } from "./db.js";
 import { getOrdenesConEstado } from "./stockUtils.js";
 import { formatearFechaCorta } from "./ui.js";
 
-function etiquetaEstado(o) {
-  if (o.estado === "completada") return { texto: "Completada", clase: "sincronizado" };
-  if (o.estado === "atrasada") return { texto: `Atrasada (${o.diasAtraso} día${o.diasAtraso === 1 ? "" : "s"})`, clase: "pendiente" };
-  return { texto: "Pendiente", clase: "" };
-}
-
 // Órdenes de Trabajo pasó a ser de solo lectura (2026-08-17): las carga el
 // asesor directo en la Sheet ("Órdenes de Trabajo"), no hay alta desde acá.
 // La app solo las muestra, separadas en pendientes/realizadas y ordenadas
@@ -80,28 +74,32 @@ function renderListado(lista, titulo, ordenes, contratistaId, mensajeVacioConFil
   }
   lista.innerHTML = `<h2 style="margin-top:0;">${titulo} (${ordenes.length})</h2>`;
   for (const o of ordenes) {
-    const { texto: estadoTxt, clase: estadoClase } = etiquetaEstado(o);
-    const lotesTxt = o.lotes.map((l) => `${l.loteNombre}${l.aplicado ? " ✓" : ""}`).join(", ");
-    const productosTxt = o.comparacionProductos.length
+    const lotesTxt = o.lotes.map((l) => l.loteNombre).join(", ");
+    const filasProductos = o.comparacionProductos.length
       ? o.comparacionProductos
           .map(
             (p) => `
-        <div class="muted">${p.productoNombre}: ${p.dosisPorHa} ${p.unidad || ""}/ha → necesita ${p.necesidadTotal} ${p.unidad || ""} en total (aplicado ${p.aplicado} ${p.unidad || ""}${
-              p.diferencia !== 0 ? `, ${p.diferencia > 0 ? "+" : ""}${p.diferencia}` : ""
-            })</div>`
+        <tr>
+          <td>${p.productoNombre}</td>
+          <td>${p.dosisPorHa} ${p.unidad || ""}/ha</td>
+          <td>${p.necesidadTotal} ${p.unidad || ""}</td>
+        </tr>`
           )
           .join("")
-      : '<div class="muted">Sin productos cargados.</div>';
+      : '<tr><td colspan="3" class="muted">Sin productos cargados.</td></tr>';
 
     const row = document.createElement("div");
     row.className = "list-item";
+    row.style.flexDirection = "column";
+    row.style.alignItems = "stretch";
     row.innerHTML = `
-      <div>
-        <div><strong>${o.nombre}</strong> — ${o.contratistaNombre} <span class="pill ${estadoClase}">${estadoTxt}</span></div>
-        <div class="muted">${o.has ? o.has + " ha · " : ""}Lotes (${o.lotesAplicadosCount}/${o.totalLotes} aplicados): ${lotesTxt}</div>
-        <div class="muted">Inicio: ${formatearFechaCorta(o.fechaAsignacion)} · Plazo: ${formatearFechaCorta(o.fechaLimite)}${o.observaciones ? " · " + o.observaciones : ""}</div>
-        ${productosTxt}
-      </div>
+      <div><strong>${o.nombre}</strong></div>
+      <div class="muted">Lote${o.lotes.length > 1 ? "s" : ""}: ${lotesTxt}</div>
+      <div class="muted">Fecha: ${formatearFechaCorta(o.fechaAsignacion)}${o.fechaLimite ? " – " + formatearFechaCorta(o.fechaLimite) : ""}</div>
+      <table class="tabla-orden">
+        <thead><tr><th>Producto</th><th>Dosis</th><th>Necesidad total</th></tr></thead>
+        <tbody>${filasProductos}</tbody>
+      </table>
     `;
     lista.appendChild(row);
   }

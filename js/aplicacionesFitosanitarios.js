@@ -149,6 +149,7 @@ const aplicacionesFitosanitariosView = {
                     <select class="fProductoRow"><option value="">Elegí el contratista arriba...</option></select>
                     <input type="text" inputmode="decimal" class="fCantidadRow" placeholder="Cantidad total" />
                   </div>
+                  <div class="muted hidden dosisRow"></div>
                   <div class="muted hidden pendienteRow"></div>
                 </div>`
                 )
@@ -203,19 +204,32 @@ const aplicacionesFitosanitariosView = {
       });
     }
 
-    // Con orden activa, la cantidad de cada fila se recalcula sola cada vez
-    // que cambian las has aplicadas (dosis/ha × has) — queda editable igual,
-    // por si lo que realmente se usó difirió un poco de lo planificado.
-    function actualizarCantidadesPorOrden(orden) {
-      if (!orden) return;
+    // Con orden activa, no se precarga la cantidad: el contratista escribe lo
+    // que realmente usó ("total usado") y la dosis real (usado ÷ has
+    // aplicadas) se muestra al lado, en vivo, para compararla con la dosis
+    // sugerida de la orden (dosis/ha planificada).
+    function actualizarDosisFila(fila, i) {
+      const orden = ordenActiva();
+      const dosisEl = fila.querySelector(".dosisRow");
+      const cantidadInput = fila.querySelector(".fCantidadRow");
+      const plan = orden ? orden.comparacionProductos[i] : null;
+      if (!plan) {
+        dosisEl.classList.add("hidden");
+        cantidadInput.placeholder = "Cantidad total";
+        return;
+      }
+      cantidadInput.placeholder = "Total usado";
       const has = parseNumero(fHas.value);
-      filas.forEach((fila, i) => {
-        const plan = orden.comparacionProductos[i];
-        if (!plan) return;
-        const cantidadInput = fila.querySelector(".fCantidadRow");
-        cantidadInput.placeholder = `${plan.dosisPorHa} ${plan.unidad || ""}/ha`;
-        cantidadInput.value = has > 0 ? Math.round(plan.dosisPorHa * has * 100) / 100 : "";
-      });
+      const usado = parseNumero(cantidadInput.value);
+      const dosisReal = has > 0 && usado > 0 ? Math.round((usado / has) * 100) / 100 : null;
+      dosisEl.classList.remove("hidden");
+      dosisEl.textContent = `Dosis sugerida: ${plan.dosisPorHa} ${plan.unidad || ""}/ha · Dosis real: ${
+        dosisReal !== null ? dosisReal + " " + (plan.unidad || "") + "/ha" : "—"
+      }`;
+    }
+
+    function actualizarDosisFilas() {
+      filas.forEach((fila, i) => actualizarDosisFila(fila, i));
     }
 
     function poblarLoteSegunOrden(orden) {
@@ -232,10 +246,11 @@ const aplicacionesFitosanitariosView = {
           .join("");
     }
 
-    filas.forEach((fila) => {
+    filas.forEach((fila, i) => {
       fila.querySelector(".fProductoRow").addEventListener("change", () => {
         actualizarPendienteFila(fila, fContratista.value, cuenta);
       });
+      fila.querySelector(".fCantidadRow").addEventListener("input", () => actualizarDosisFila(fila, i));
     });
 
     fOrden.addEventListener("change", () => {
@@ -246,7 +261,10 @@ const aplicacionesFitosanitariosView = {
       renderCuentaCard(container, cuenta, fContratista.value, contratista ? contratista.nombre : "");
       poblarLoteSegunOrden(orden);
       actualizarOpcionesProductos(fContratista.value, orden);
-      actualizarCantidadesPorOrden(orden);
+      // Nueva orden: se limpia lo que se haya tipeado antes de "total usado"
+      // para que el contratista cargue lo que realmente usó de esta orden.
+      filas.forEach((fila) => (fila.querySelector(".fCantidadRow").value = ""));
+      actualizarDosisFilas();
       filas.forEach((fila) => actualizarPendienteFila(fila, fContratista.value, cuenta));
     });
 
@@ -259,7 +277,7 @@ const aplicacionesFitosanitariosView = {
       filas.forEach((fila) => actualizarPendienteFila(fila, fContratista.value, cuenta));
     });
 
-    fHas.addEventListener("input", () => actualizarCantidadesPorOrden(ordenActiva()));
+    fHas.addEventListener("input", actualizarDosisFilas);
 
     container.querySelector("#formAplicacion").addEventListener("submit", async (e) => {
       e.preventDefault();
