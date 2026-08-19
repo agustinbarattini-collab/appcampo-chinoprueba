@@ -60,22 +60,6 @@ function optsConPendiente(cuenta, contratistaId) {
     .join("");
 }
 
-function actualizarPendienteFila(filaEl, contratistaId, cuenta) {
-  const productoId = filaEl.querySelector(".fProductoRow").value;
-  const pendienteEl = filaEl.querySelector(".pendienteRow");
-  if (!contratistaId || !productoId) {
-    pendienteEl.classList.add("hidden");
-    return;
-  }
-  const c = cuenta.find((x) => x.contratistaId === contratistaId && x.insumoId === productoId);
-  pendienteEl.classList.remove("hidden");
-  if (c) {
-    pendienteEl.textContent = `Pendiente: ${c.pendiente} ${c.unidad || ""} (retiró ${c.retirado}, usó ${c.usado}, devolvió ${c.devuelto})`;
-  } else {
-    pendienteEl.textContent = "Este contratista no tiene retiros registrados de este producto.";
-  }
-}
-
 // Solo se ofrecen las órdenes no completadas — una vez que están todos los
 // lotes aplicados no tiene sentido seguir eligiéndolas acá.
 function optsOrdenes(ordenesConEstado) {
@@ -150,7 +134,6 @@ const aplicacionesFitosanitariosView = {
                     <input type="text" inputmode="decimal" class="fCantidadRow" placeholder="Cantidad total" />
                   </div>
                   <div class="muted hidden dosisRow"></div>
-                  <div class="muted hidden pendienteRow"></div>
                 </div>`
                 )
                 .join("")}
@@ -247,9 +230,6 @@ const aplicacionesFitosanitariosView = {
     }
 
     filas.forEach((fila, i) => {
-      fila.querySelector(".fProductoRow").addEventListener("change", () => {
-        actualizarPendienteFila(fila, fContratista.value, cuenta);
-      });
       fila.querySelector(".fCantidadRow").addEventListener("input", () => actualizarDosisFila(fila, i));
     });
 
@@ -265,7 +245,6 @@ const aplicacionesFitosanitariosView = {
       // para que el contratista cargue lo que realmente usó de esta orden.
       filas.forEach((fila) => (fila.querySelector(".fCantidadRow").value = ""));
       actualizarDosisFilas();
-      filas.forEach((fila) => actualizarPendienteFila(fila, fContratista.value, cuenta));
     });
 
     fContratista.addEventListener("change", () => {
@@ -274,7 +253,6 @@ const aplicacionesFitosanitariosView = {
       const contratista = contratistas.find((c) => c.id === fContratista.value);
       renderCuentaCard(container, cuenta, fContratista.value, contratista ? contratista.nombre : "");
       actualizarOpcionesProductos(fContratista.value, ordenActiva());
-      filas.forEach((fila) => actualizarPendienteFila(fila, fContratista.value, cuenta));
     });
 
     fHas.addEventListener("input", actualizarDosisFilas);
